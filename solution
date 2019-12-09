@@ -1,0 +1,82 @@
+import matplotlib.pyplot as plt
+import mplleaflet
+import pandas as pd
+import numpy as np
+import matplotlib.dates as dates
+
+def leaflet_plot_stations(binsize, hashid):
+
+    df = pd.read_csv('data/C2A2_data/BinSize_d{}.csv'.format(binsize))
+
+    station_locations_by_hash = df[df['hash'] == hashid]
+
+    lons = station_locations_by_hash['LONGITUDE'].tolist()
+    lats = station_locations_by_hash['LATITUDE'].tolist()
+
+    plt.figure(figsize=(8,8))
+
+    plt.scatter(lons, lats, c='r', alpha=0.7, s=200)
+
+    return mplleaflet.display()
+
+def graph():
+    df = pd.read_csv('data/C2A2_data/BinnedCsvs_d50/0071d247cf8b12bab7ea835d2a820a859cb28ee4303fc1992a52f58d.csv')
+    df = df.sort_values(by=['ID','Date', 'Element'])
+    zip_generator = df['Date'].apply(lambda string: (string[0:4], string[5:]))
+    df['Year'], df['M-D'] = zip(*zip_generator)
+    
+    df = df[df['M-D'] != '02-29']
+    df['Data_Value'] *= 1/10
+    df.drop(['ID', 'Date'], axis=1, inplace=True)
+    df_2015 = df[df['Year'] == '2015']
+    df = df[df['Year'] != '2015'] 
+    
+    min_2015 = df_2015[df_2015['Element'] == 'TMIN'].groupby('M-D').agg({'Data_Value': np.min})
+    max_2015 = df_2015[df_2015['Element'] == 'TMAX'].groupby('M-D').agg({'Data_Value': np.max})
+    
+    min_others = df[df['Element'] == 'TMIN'].groupby('M-D').agg({'Data_Value': np.min})
+    max_others = df[df['Element'] == 'TMAX'].groupby('M-D').agg({'Data_Value': np.max})
+    
+    point_min = np.where(min_2015 < min_others)[0]
+    point_max = np.where(max_2015 > max_others)[0]
+    
+    
+    plt.figure()
+    
+    plt.plot(min_others.values, 'b', lw= 0.5, label = 'Record Low')
+    plt.plot(max_others.values, 'r', lw= 0.5, label = 'Record High')
+    
+    plt.scatter(point_min, min_2015.iloc[point_min], s = 25, marker='o', c = 'y', label = 'Broken Low')
+    plt.scatter(point_max, max_2015.iloc[point_max], s = 25, marker='o', c = 'black', label = 'Broken High')
+    
+    plt.fill_between(range(len(min_others)), min_others['Data_Value'], max_others['Data_Value'], facecolor = 'purple', alpha = 0.25)
+    
+    plt.xlabel('Month-Day')
+    plt.xticks(range(0, len(min_others), 20), min_others.index[range(0, len(min_others), 20)], rotation = '45')
+    
+    plt.ylabel('Temperature in Celsius')
+    plt.title('Temperature in İstanbul')
+    
+    plt.subplots_adjust(bottom=0.15)
+    plt.legend(loc='best')
+    
+    ax = plt.gca()
+    
+    # ax.xaxis.set_major_formatter(dates.DateFormatter('%d-%d'))
+    #loc, labels = plt.xticks()
+    #plt.setp(labels, rotation=90)
+
+    # Hide the right and top spines
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    # Only show ticks on the left and bottom spines
+    ax.yaxis.set_ticks_position('left')
+    ax.xaxis.set_ticks_position('bottom')
+
+    plt.show()
+    
+    return 
+
+leaflet_plot_stations(50,'0071d247cf8b12bab7ea835d2a820a859cb28ee4303fc1992a52f58d')
+graph()
